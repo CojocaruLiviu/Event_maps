@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Marele Tur al Chinei · Beijing, Zhangjiajie, Xi'an, Shanghai</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
+
+  :root{
+    --red:        #9E1B23;
+    --red-dark:   #5C0F16;
+    --red-light:  #C23A3F;
+    --gold:       #C9A227;
+    --sky:        #4A7FA6;
+    --sand:       #F8F3E9;
+    --panel:      #EFE6D2;
+    --ink:        #241B16;
+    --ink-soft:   #5C4F45;
+    --line:       rgba(36,27,22,0.10);
+    --warn-bg:    #F1E9DA;
+    --warn-edge:  #B8863B;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;
+    font-family:'Inter',system-ui,sans-serif;color:var(--ink);background:var(--sand);}
+
+  #app{position:relative;width:100vw;height:100vh;}
+  #map{position:absolute;inset:0;background:#EAE5D6;}
+  .leaflet-control-attribution{font-size:10px;opacity:.6;background:rgba(255,255,255,.75)!important;}
+  .leaflet-control-zoom{border:none!important;margin:0 16px 18px 0!important;}
+  .leaflet-control-zoom a{
+    border-radius:10px!important;color:var(--red-dark)!important;
+    box-shadow:0 2px 10px rgba(92,15,22,.15)!important;border:1px solid var(--line)!important;
+  }
+
+  /* ---------- Reserve button ---------- */
+  #reserveBtn{
+    position:absolute;top:20px;left:20px;z-index:500;
+    display:inline-flex;align-items:center;gap:8px;
+    background:var(--red);color:#fff;border:none;border-radius:999px;
+    padding:13px 22px 13px 18px;font:600 14.5px 'Inter',sans-serif;letter-spacing:.2px;
+    cursor:pointer;box-shadow:0 6px 18px rgba(92,15,22,.32);
+    transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+  }
+  #reserveBtn:hover{background:var(--red-light);transform:translateY(-1px);box-shadow:0 8px 22px rgba(92,15,22,.4);}
+  #reserveBtn svg{width:16px;height:16px;flex:none;}
+
+  /* ---------- Map pill markers ---------- */
+  .pill{display:inline-flex;flex-direction:column;align-items:center;transform:translate(-50%,-100%);}
+  .pill-label{
+    background:var(--red);color:#fff;font:700 12.5px 'Inter',sans-serif;letter-spacing:.2px;
+    padding:6px 12px;border-radius:8px;white-space:nowrap;box-shadow:0 4px 12px rgba(92,15,22,.32);
+    border:1.5px solid rgba(255,255,255,.5);
+    transition:transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease;
+  }
+  .pill.waypoint .pill-label{background:var(--sky);font-weight:600;padding:5px 10px;font-size:11.5px;}
+  .pill-tail{width:9px;height:9px;background:var(--red);transform:rotate(45deg) translateY(-6px);
+    box-shadow:0 4px 8px rgba(92,15,22,.22);}
+  .pill.waypoint .pill-tail{background:var(--sky);}
+  .pill.is-active .pill-label{transform:scale(1.12);box-shadow:0 6px 18px rgba(92,15,22,.48);}
+  .pill.pulse .pill-label{animation:pulse .8s ease;}
+  @keyframes pulse{0%{transform:scale(1);} 40%{transform:scale(1.28);} 100%{transform:scale(1.12);}}
+
+  .mover{display:flex;align-items:center;justify-content:center;width:30px;height:30px;
+    border-radius:50%;background:#fff;box-shadow:0 3px 10px rgba(36,27,22,.35);
+    border:2px solid var(--red);font-size:15px;transform:translate(-50%,-50%);}
+
+  /* ---------- Sidebar ---------- */
+  #sidebar{
+    position:absolute;top:0;right:0;height:100%;width:410px;max-width:88vw;
+    background:var(--sand);z-index:600;display:flex;flex-direction:column;
+    box-shadow:-8px 0 30px rgba(36,27,22,.16);
+    transition:transform .35s cubic-bezier(.65,0,.35,1);
+  }
+  #sidebar.hidden{transform:translateX(100%);}
+
+  .sb-header{position:relative;padding:26px 26px 22px;background:linear-gradient(155deg,var(--red-dark),var(--red) 85%);
+    color:#fff;overflow:hidden;flex:none;}
+  .sb-header .wall{position:absolute;left:0;right:0;bottom:0;height:34px;opacity:.28;}
+  .sb-close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;
+    background:rgba(255,255,255,.16);border:none;color:#fff;font-size:16px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transition:background .15s ease;}
+  .sb-close:hover{background:rgba(255,255,255,.3);}
+  .eyebrow{font:700 11px 'Inter',sans-serif;letter-spacing:1.3px;text-transform:uppercase;
+    color:#F0CFCF;position:relative;z-index:1;}
+  .sb-header h1{font:600 22px/1.3 'Fraunces',serif;margin:8px 0 10px;position:relative;z-index:1;}
+  .route-breadcrumb{font:500 12px 'Inter',sans-serif;color:#F6E4D8;line-height:1.6;position:relative;z-index:1;}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;position:relative;z-index:1;}
+  .legend span{display:flex;align-items:center;gap:6px;font:500 11.5px 'Inter',sans-serif;color:#F8EFE9;}
+  .legend i{width:16px;height:0;display:inline-block;}
+  .l-flight i{border-top:2.5px dashed #A9C7DD;}
+  .l-train i{border-top:3px dashed #E8A6A9;}
+
+  .steps{flex:1;overflow-y:auto;padding:6px 0 26px;}
+  .steps::-webkit-scrollbar{width:6px;}
+  .steps::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px;}
+
+  .step{display:flex;gap:14px;padding:16px 26px;cursor:pointer;border-left:3px solid transparent;
+    transition:background .18s ease, border-color .18s ease;}
+  .step:hover{background:var(--panel);}
+  .step.active{background:#EFE2D9;border-left-color:var(--red);}
+  .step-num{flex:none;width:27px;height:27px;border-radius:50%;background:var(--red);color:#fff;
+    display:flex;align-items:center;justify-content:center;font:700 12.5px 'Inter',sans-serif;margin-top:2px;}
+  .step-body h3{margin:0 0 2px;font:600 14.5px 'Fraunces',serif;color:var(--ink);}
+  .step-day{display:block;font:600 10.5px 'Inter',sans-serif;letter-spacing:.3px;text-transform:uppercase;
+    color:var(--ink-soft);opacity:.75;margin-bottom:6px;}
+  .step-body p{margin:0;font:400 13px/1.6 'Inter',sans-serif;color:var(--ink-soft);}
+  .tag{display:inline-block;margin-top:8px;font:600 10.5px 'Inter',sans-serif;letter-spacing:.3px;
+    text-transform:uppercase;color:var(--red-dark);background:rgba(158,27,35,.09);
+    padding:3px 9px;border-radius:999px;}
+
+  .notice{margin:6px 26px 0;padding:14px 16px;background:var(--warn-bg);border-left:3px solid var(--warn-edge);
+    border-radius:0 10px 10px 0;}
+  .notice h4{margin:0 0 8px;font:700 11.5px 'Inter',sans-serif;letter-spacing:.3px;text-transform:uppercase;
+    color:#8A5A25;display:flex;align-items:center;gap:6px;}
+  .notice ul{margin:0;padding-left:18px;}
+  .notice li{font:400 12.5px/1.55 'Inter',sans-serif;color:#5E4530;margin-bottom:6px;}
+  .notice li:last-child{margin-bottom:0;}
+
+  #reopenTab{
+    position:absolute;top:24px;right:0;z-index:601;background:var(--red);color:#fff;border:none;
+    padding:12px 14px;border-radius:10px 0 0 10px;font:600 12.5px 'Inter',sans-serif;cursor:pointer;
+    box-shadow:-4px 4px 14px rgba(92,15,22,.28);display:none;align-items:center;gap:6px;
+  }
+  #reopenTab.show{display:flex;}
+
+  @media (max-width:760px){
+    #sidebar{top:auto;bottom:0;left:0;right:0;width:100%;max-width:100%;height:60vh;
+      border-radius:18px 18px 0 0;transition:transform .35s cubic-bezier(.65,0,.35,1);}
+    #sidebar.hidden{transform:translateY(100%);}
+    #reopenTab{top:auto;bottom:20px;right:16px;border-radius:999px;box-shadow:0 6px 18px rgba(92,15,22,.32);}
+    #reserveBtn{padding:11px 18px 11px 15px;font-size:13.5px;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="map"></div>
+
+  <button id="reserveBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    Rezervă acum
+  </button>
+
+  <aside id="sidebar">
+    <div class="sb-header">
+      <svg class="wall" viewBox="0 0 400 34" preserveAspectRatio="none">
+        <path d="M0 34 L0 18 L14 18 L14 10 L28 10 L28 18 L42 18 L42 8 L56 8 L56 18 L100 18 L100 10 L114 10 L114 18 L160 18 L160 6 L174 6 L174 18 L220 18 L220 12 L234 12 L234 18 L280 18 L280 8 L294 8 L294 18 L340 18 L340 10 L354 10 L354 18 L400 18 L400 34 Z" fill="#fff"/>
+      </svg>
+      <button class="sb-close" id="sbClose" aria-label="Închide">✕</button>
+      <div class="eyebrow">12 zile / 11 nopți · Program propus</div>
+      <h1>Marele Tur al Chinei: Beijing · Zhangjiajie · Xi'an · Shanghai ✨</h1>
+      <div class="route-breadcrumb">Chișinău → Beijing → Zhangjiajie → Xi'an → Shanghai → Chișinău</div>
+      <div class="legend">
+        <span class="l-flight"><i></i>Zbor</span>
+        <span class="l-train"><i></i>Tren de mare viteză</span>
+      </div>
+    </div>
+
+    <div class="steps" id="stepsList"></div>
+  </aside>
+
+  <button id="reopenTab">☰ Program</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+  // ---------- Data ----------
+  const PLACES = {
+    chi:        { name:'Chișinău',    lat:47.0105, lng:28.8638,  waypoint:true,  zoom:4  },
+    beijing:    { name:'Beijing',     lat:39.9042, lng:116.4074, waypoint:false, zoom:10 },
+    zhangjiajie:{ name:'Zhangjiajie', lat:29.1201, lng:110.4792, waypoint:false, zoom:10 },
+    xian:       { name:"Xi'an",       lat:34.3416, lng:108.9398, waypoint:false, zoom:10 },
+    shanghai:   { name:'Shanghai',    lat:31.2304, lng:121.4737, waypoint:false, zoom:10 },
+  };
+
+  const JOURNEY = [
+    { from:'chi',         to:'beijing',     mode:'flight' },
+    { from:'beijing',     to:'zhangjiajie', mode:'flight' },
+    { from:'zhangjiajie', to:'xian',        mode:'flight' },
+    { from:'xian',        to:'shanghai',    mode:'train'  },
+    { from:'shanghai',    to:'chi',         mode:'flight' },
+  ];
+  const MODE_STYLE = {
+    flight: { color:'#4A7FA6', weight:3,   opacity:.80, dash:'1 11' },
+    train:  { color:'#9E1B23', weight:4.5, opacity:.90, dash:'1 9'  },
+  };
+  const MODE_EMOJI = { flight:'✈️', train:'🚄' };
+
+  const STEPS = [
+    { n:1, day:'Ziua 1', title:'Sosire în Beijing', bounds:['chi','beijing'], tag:'Cazare: Beijing',
+      text:'Sosire în Beijing, transfer de la aeroport la hotel, check-in și timp liber pentru odihnă și acomodare cu orașul.' },
+    { n:2, day:'Ziua 2', title:'Piața Tiananmen • Orașul Interzis • Marele Zid Mutianyu', focus:'beijing', tag:'Cazare: Beijing',
+      text:'Piața Tiananmen, cu monumentele emblematice ale pieței, urmată de Orașul Interzis — fostul complex imperial vechi de aproape 600 de ani. După-amiază, secțiunea Mutianyu a Marelui Zid, cu drumeție de ~2,5 ore și prânz tip bufet.' },
+    { n:3, day:'Ziua 3', title:'Templul Cerului • Hutong • Templul Lama • Palatul de Vară', focus:'beijing', tag:'Cazare: Beijing',
+      text:'Templul Cerului, plimbare cu ricșa în cartierul tradițional Hutong, Templul Lama — una dintre cele mai importante mănăstiri budiste tibetane din Beijing — și Palatul de Vară, cu grădinile și lacurile sale imperiale.' },
+    { n:4, day:'Ziua 4', title:'Beijing – Zhangjiajie', bounds:['beijing','zhangjiajie'], tag:'Cazare: Zhangjiajie',
+      text:'Zbor intern spre Zhangjiajie, în provincia Hunan. Transfer la hotel și timp liber.' },
+    { n:5, day:'Ziua 5', title:'Parcul Național Zhangjiajie', focus:'zhangjiajie', tag:'Cazare: Zhangjiajie',
+      text:'Munții de gresie cuarțoasă care au inspirat peisajele din filmul Avatar — plimbare printre coloanele de stâncă, alei suspendate și telecabina spre Grădina Suspendată Huangshi Zhai.' },
+    { n:6, day:'Ziua 6', title:'Muntele Tianmen', focus:'zhangjiajie', tag:'Cazare: Zhangjiajie',
+      text:'Telecabina panoramică spre Muntele Tianmen — una dintre cele mai lungi din lume —, Poarta Cerului, pasarela de sticlă suspendată pe versant și treptele „Scării spre Rai".' },
+    { n:7, day:'Ziua 7', title:"Zhangjiajie – Xi'an", bounds:['zhangjiajie','xian'], tag:"Cazare: Xi'an",
+      text:"Zbor intern spre Xi'an. Transfer la hotel; seara, plimbare opțională pe Zidul Cetății, unul dintre cele mai bine conservate ziduri urbane medievale din China." },
+    { n:8, day:'Ziua 8', title:'Armata de Teracotă & Cartierul Musulman', focus:'xian', tag:"Cazare: Xi'an",
+      text:'Cele trei gropi ale Armatei de Teracotă, ridicate pentru a păzi mausoleul primului împărat al Chinei unificate, urmate de o plimbare prin Cartierul Musulman și piața sa de noapte.' },
+    { n:9, day:'Ziua 9', title:'Xi\'an – Shanghai', bounds:['xian','shanghai'], tag:'Cazare: Shanghai',
+      text:'Călătorie cu trenul de mare viteză spre Shanghai. La sosire, transfer și check-in la hotel, cu timp liber pentru explorare individuală. Opțional, seara: croazieră pe râul Huangpu, cu panorama luminată a zonei Bund și Pudong.' },
+    { n:10, day:'Ziua 10', title:'Grădina Yu • Templul Buddha de Jad • Turnul Shanghai • Bund', focus:'shanghai', tag:'Cazare: Shanghai',
+      text:'Grădina Yu Yuan și bazarul din apropiere, Templul Buddha de Jad, prânz cu Shengjian — specialitate locală —, urcarea pe Shanghai Tower, cea mai înaltă clădire din China, apoi plimbare prin Concesiunea Franceză și zona Bund.' },
+    { n:11, day:'Ziua 11', title:'Shanghai — timp liber / Zhujiajiao opțional', focus:'shanghai', tag:'Cazare: Shanghai',
+      text:'Zi liberă pentru explorare individuală sau, opțional, o excursie în orașul istoric de apă Zhujiajiao — canale, poduri tradiționale și plimbare cu barca.' },
+    { n:12, day:'Ziua 12', title:'Shanghai – Chișinău', bounds:['shanghai','chi'], tag:'Zbor retur',
+      text:'Timp liber pentru ultimele cumpărături sau, opțional, o zi de relaxare la Yang SPACE Hot Spring Life. Transfer spre aeroport și zbor de retur spre Chișinău, în funcție de orarul zborului.' },
+  ];
+
+  // ---------- Map ----------
+  const map = L.map('map', { zoomControl:false, attributionControl:true, worldCopyJump:true });
+  L.control.zoom({ position:'bottomright' }).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution:'© OpenStreetMap, © CARTO', maxZoom:19, subdomains:'abcd'
+  }).addTo(map);
+
+  const cnBounds = L.latLngBounds(['beijing','zhangjiajie','xian','shanghai'].map(id=>[PLACES[id].lat,PLACES[id].lng]));
+  map.fitBounds(cnBounds, { padding:[90,90] });
+
+  function pillIcon(name, waypoint){
+    return L.divIcon({
+      className:'', html:`<div class="pill${waypoint?' waypoint':''}"><div class="pill-label">${name}</div><div class="pill-tail"></div></div>`,
+      iconSize:[0,0], iconAnchor:[0,0]
+    });
+  }
+
+  const markers = {};
+  Object.entries(PLACES).forEach(([id,p])=>{
+    const m = L.marker([p.lat,p.lng], { icon:pillIcon(p.name,p.waypoint) }).addTo(map);
+    markers[id] = m;
+    m.on('click', ()=> focusIds([id]));
+  });
+
+  JOURNEY.forEach(seg=>{
+    const a = PLACES[seg.from], b = PLACES[seg.to], st = MODE_STYLE[seg.mode];
+    L.polyline([[a.lat,a.lng],[b.lat,b.lng]], {
+      color:st.color, weight:st.weight, opacity:st.opacity, dashArray:st.dash, lineCap:'round'
+    }).addTo(map);
+  });
+
+  // ---------- Moving icon along the whole journey ----------
+  function haversine(a,b){
+    const R=6371, toRad=d=>d*Math.PI/180;
+    const dLat=toRad(b.lat-a.lat), dLng=toRad(b.lng-a.lng);
+    const s=Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLng/2)**2;
+    return 2*R*Math.asin(Math.sqrt(s));
+  }
+  const segDist = JOURNEY.map(s=>haversine(PLACES[s.from],PLACES[s.to]));
+  const totalDist = segDist.reduce((a,b)=>a+b,0);
+  const LOOP_MS = 32000;
+
+  const mover = L.marker([PLACES.chi.lat,PLACES.chi.lng], {
+    icon: L.divIcon({ className:'', html:'<div class="mover">✈️</div>', iconSize:[0,0], iconAnchor:[0,0] }),
+    zIndexOffset:1000
+  }).addTo(map);
+
+  function animate(ts){
+    const t = (ts % LOOP_MS) / LOOP_MS;
+    let target = t * totalDist, acc = 0, idx = 0;
+    for(; idx < segDist.length; idx++){
+      if(acc + segDist[idx] >= target) break;
+      acc += segDist[idx];
+    }
+    idx = Math.min(idx, JOURNEY.length-1);
+    const seg = JOURNEY[idx];
+    const localT = segDist[idx] ? (target-acc)/segDist[idx] : 0;
+    const a = PLACES[seg.from], b = PLACES[seg.to];
+    mover.setLatLng([a.lat+(b.lat-a.lat)*localT, a.lng+(b.lng-a.lng)*localT]);
+    const emoji = MODE_EMOJI[seg.mode];
+    const el = mover.getElement();
+    if(el){ const inner = el.querySelector('.mover'); if(inner && inner.textContent !== emoji) inner.textContent = emoji; }
+    requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+
+  // ---------- Sidebar ----------
+  const stepsList = document.getElementById('stepsList');
+  STEPS.forEach(s=>{
+    const el = document.createElement('div');
+    el.className = 'step';
+    el.dataset.ids = JSON.stringify(s.bounds || [s.focus]);
+    el.innerHTML = `
+      <div class="step-num">${s.n}</div>
+      <div class="step-body">
+        <span class="step-day">${s.day}</span>
+        <h3>${s.title}</h3>
+        <p>${s.text}</p>
+        <span class="tag">${s.tag}</span>
+      </div>`;
+    el.addEventListener('click', ()=> focusIds(s.bounds || [s.focus], el));
+    stepsList.appendChild(el);
+  });
+
+  const notice = document.createElement('div');
+  notice.className = 'notice';
+  notice.innerHTML = `
+    <h4>⚠ De reținut</h4>
+    <ul>
+      <li>La Piața Tiananmen, pentru controalele de securitate: doar pașaportul și apă potabilă, evitând obiectele inutile.</li>
+      <li>Pe Marele Zid (Mutianyu), sania nu este permisă copiilor sub 10 ani neînsoțiți, persoanelor de 60+ ani sau celor cu hipertensiune ori afecțiuni cardiace.</li>
+      <li>Pentru rezervarea în avans a unor bilete poate fi necesară furnizarea datelor din pașaport.</li>
+    </ul>`;
+  stepsList.appendChild(notice);
+
+  function focusIds(ids, sourceEl){
+    if(ids.length > 1){
+      const b = L.latLngBounds(ids.map(id=>[PLACES[id].lat,PLACES[id].lng]));
+      map.flyToBounds(b, { padding:[90,90], duration:1.1 });
+    } else {
+      const p = PLACES[ids[0]];
+      map.flyTo([p.lat,p.lng], Math.max(map.getZoom(), p.zoom), { duration:.9 });
+    }
+
+    Object.entries(markers).forEach(([mid,m])=>{
+      const wrap = m.getElement()?.querySelector('.pill');
+      if(!wrap) return;
+      const active = ids.includes(mid);
+      wrap.classList.toggle('is-active', active);
+      if(active){ wrap.classList.remove('pulse'); void wrap.offsetWidth; wrap.classList.add('pulse'); }
+    });
+
+    document.querySelectorAll('.step').forEach(el=>{
+      const stepIds = JSON.parse(el.dataset.ids);
+      el.classList.toggle('active', stepIds.some(id=>ids.includes(id)));
+    });
+    if(sourceEl) sourceEl.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+
+  // ---------- Sidebar open/close ----------
+  const sidebar = document.getElementById('sidebar');
+  const reopenTab = document.getElementById('reopenTab');
+  document.getElementById('sbClose').addEventListener('click', ()=>{
+    sidebar.classList.add('hidden'); reopenTab.classList.add('show');
+  });
+  reopenTab.addEventListener('click', ()=>{
+    sidebar.classList.remove('hidden'); reopenTab.classList.remove('show');
+  });
+
+  document.getElementById('reserveBtn').addEventListener('click', ()=>{
+    alert('Conectează acest buton la pagina de rezervare a circuitului.');
+  });
+</script>
+</body>
+</html>

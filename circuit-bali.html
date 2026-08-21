@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Circuit Bali · Cultură, Yacht, Elicopter</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
+
+  :root{
+    --jungle:       #1F6B5C;
+    --jungle-dark:  #0F3A30;
+    --jungle-light: #2E8F7A;
+    --gold:         #C99A3E;
+    --ocean:        #3E8FA6;
+    --sand:         #FAF6EC;
+    --panel:        #EFE8D6;
+    --ink:          #20261E;
+    --ink-soft:     #59634F;
+    --line:         rgba(32,38,30,0.10);
+    --warn-bg:      #F5EEDC;
+    --warn-edge:    #B8863B;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;
+    font-family:'Inter',system-ui,sans-serif;color:var(--ink);background:var(--sand);}
+
+  #app{position:relative;width:100vw;height:100vh;}
+  #map{position:absolute;inset:0;background:#E7E4D4;}
+  .leaflet-control-attribution{font-size:10px;opacity:.6;background:rgba(255,255,255,.75)!important;}
+  .leaflet-control-zoom{border:none!important;margin:0 16px 18px 0!important;}
+  .leaflet-control-zoom a{
+    border-radius:10px!important;color:var(--jungle-dark)!important;
+    box-shadow:0 2px 10px rgba(15,58,48,.15)!important;border:1px solid var(--line)!important;
+  }
+
+  /* ---------- Reserve button ---------- */
+  #reserveBtn{
+    position:absolute;top:20px;left:20px;z-index:500;
+    display:inline-flex;align-items:center;gap:8px;
+    background:var(--jungle);color:#fff;border:none;border-radius:999px;
+    padding:13px 22px 13px 18px;font:600 14.5px 'Inter',sans-serif;letter-spacing:.2px;
+    cursor:pointer;box-shadow:0 6px 18px rgba(15,58,48,.32);
+    transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+  }
+  #reserveBtn:hover{background:var(--jungle-light);transform:translateY(-1px);box-shadow:0 8px 22px rgba(15,58,48,.4);}
+  #reserveBtn svg{width:16px;height:16px;flex:none;}
+
+  /* ---------- Map pill markers ---------- */
+  .pill{display:inline-flex;flex-direction:column;align-items:center;transform:translate(-50%,-100%);}
+  .pill-label{
+    background:var(--jungle);color:#fff;font:700 12.5px 'Inter',sans-serif;letter-spacing:.2px;
+    padding:6px 12px;border-radius:8px;white-space:nowrap;box-shadow:0 4px 12px rgba(15,58,48,.32);
+    border:1.5px solid rgba(255,255,255,.5);
+    transition:transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease;
+  }
+  .pill.waypoint .pill-label{background:var(--ocean);font-weight:600;padding:5px 10px;font-size:11.5px;}
+  .pill-tail{width:9px;height:9px;background:var(--jungle);transform:rotate(45deg) translateY(-6px);
+    box-shadow:0 4px 8px rgba(15,58,48,.22);}
+  .pill.waypoint .pill-tail{background:var(--ocean);}
+  .pill.is-active .pill-label{transform:scale(1.12);box-shadow:0 6px 18px rgba(15,58,48,.48);}
+  .pill.pulse .pill-label{animation:pulse .8s ease;}
+  @keyframes pulse{0%{transform:scale(1);} 40%{transform:scale(1.28);} 100%{transform:scale(1.12);}}
+
+  .mover{display:flex;align-items:center;justify-content:center;width:30px;height:30px;
+    border-radius:50%;background:#fff;box-shadow:0 3px 10px rgba(32,38,30,.35);
+    border:2px solid var(--ocean);font-size:15px;transform:translate(-50%,-50%);}
+
+  /* ---------- Sidebar ---------- */
+  #sidebar{
+    position:absolute;top:0;right:0;height:100%;width:410px;max-width:88vw;
+    background:var(--sand);z-index:600;display:flex;flex-direction:column;
+    box-shadow:-8px 0 30px rgba(32,38,30,.16);
+    transition:transform .35s cubic-bezier(.65,0,.35,1);
+  }
+  #sidebar.hidden{transform:translateX(100%);}
+
+  .sb-header{position:relative;padding:26px 26px 22px;background:linear-gradient(155deg,var(--jungle-dark),var(--jungle) 85%);
+    color:#fff;overflow:hidden;flex:none;}
+  .sb-header .fronds{position:absolute;left:0;right:0;bottom:0;height:42px;opacity:.28;}
+  .sb-close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;
+    background:rgba(255,255,255,.16);border:none;color:#fff;font-size:16px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transition:background .15s ease;}
+  .sb-close:hover{background:rgba(255,255,255,.3);}
+  .eyebrow{font:700 11px 'Inter',sans-serif;letter-spacing:1.3px;text-transform:uppercase;
+    color:#BFE6D8;position:relative;z-index:1;}
+  .sb-header h1{font:600 22px/1.3 'Fraunces',serif;margin:8px 0 10px;position:relative;z-index:1;}
+  .price-line{font:700 13px 'Inter',sans-serif;color:#F3D89A;position:relative;z-index:1;margin-bottom:8px;}
+  .route-breadcrumb{font:500 12px 'Inter',sans-serif;color:#DCF0E7;line-height:1.6;position:relative;z-index:1;}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;position:relative;z-index:1;}
+  .legend span{display:flex;align-items:center;gap:6px;font:500 11.5px 'Inter',sans-serif;color:#EAF5EF;}
+  .legend i{width:16px;height:0;display:inline-block;}
+  .l-flight i{border-top:2.5px dashed #A9D7E4;}
+  .l-tour i{border-top:3px dashed #E6C989;}
+
+  .steps{flex:1;overflow-y:auto;padding:6px 0 26px;}
+  .steps::-webkit-scrollbar{width:6px;}
+  .steps::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px;}
+
+  .step{display:flex;gap:14px;padding:16px 26px;cursor:pointer;border-left:3px solid transparent;
+    transition:background .18s ease, border-color .18s ease;}
+  .step:hover{background:var(--panel);}
+  .step.active{background:#E1EFE9;border-left-color:var(--jungle);}
+  .step-num{flex:none;width:27px;height:27px;border-radius:50%;background:var(--jungle);color:#fff;
+    display:flex;align-items:center;justify-content:center;font:700 12.5px 'Inter',sans-serif;margin-top:2px;}
+  .step-body h3{margin:0 0 2px;font:600 14.5px 'Fraunces',serif;color:var(--ink);}
+  .step-cat{display:block;font:600 10.5px 'Inter',sans-serif;letter-spacing:.3px;text-transform:uppercase;
+    color:var(--gold);opacity:.95;margin-bottom:6px;}
+  .step-body p{margin:0;font:400 13px/1.6 'Inter',sans-serif;color:var(--ink-soft);}
+
+  .notice{margin:6px 26px 0;padding:14px 16px;background:var(--warn-bg);border-left:3px solid var(--warn-edge);
+    border-radius:0 10px 10px 0;}
+  .notice h4{margin:0 0 8px;font:700 11.5px 'Inter',sans-serif;letter-spacing:.3px;text-transform:uppercase;
+    color:#8A5A25;display:flex;align-items:center;gap:6px;}
+  .notice ul{margin:0;padding-left:18px;}
+  .notice li{font:400 12.5px/1.55 'Inter',sans-serif;color:#5E4530;margin-bottom:6px;}
+  .notice li:last-child{margin-bottom:0;}
+
+  #reopenTab{
+    position:absolute;top:24px;right:0;z-index:601;background:var(--jungle);color:#fff;border:none;
+    padding:12px 14px;border-radius:10px 0 0 10px;font:600 12.5px 'Inter',sans-serif;cursor:pointer;
+    box-shadow:-4px 4px 14px rgba(15,58,48,.28);display:none;align-items:center;gap:6px;
+  }
+  #reopenTab.show{display:flex;}
+
+  @media (max-width:760px){
+    #sidebar{top:auto;bottom:0;left:0;right:0;width:100%;max-width:100%;height:60vh;
+      border-radius:18px 18px 0 0;transition:transform .35s cubic-bezier(.65,0,.35,1);}
+    #sidebar.hidden{transform:translateY(100%);}
+    #reopenTab{top:auto;bottom:20px;right:16px;border-radius:999px;box-shadow:0 6px 18px rgba(15,58,48,.32);}
+    #reserveBtn{padding:11px 18px 11px 15px;font-size:13.5px;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="map"></div>
+
+  <button id="reserveBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    Rezervă acum
+  </button>
+
+  <aside id="sidebar">
+    <div class="sb-header">
+      <svg class="fronds" viewBox="0 0 400 42" preserveAspectRatio="none">
+        <path d="M0 42 C 20 20, 10 4, 0 0 C 30 10, 40 26, 44 42 Z" fill="#fff"/>
+        <path d="M90 42 C 100 14, 90 2, 78 0 C 108 8, 118 24, 120 42 Z" fill="#fff"/>
+        <path d="M190 42 C 205 10, 192 0, 180 2 C 212 6, 224 24, 226 42 Z" fill="#fff"/>
+        <path d="M290 42 C 300 16, 288 2, 276 2 C 306 8, 316 24, 318 42 Z" fill="#fff"/>
+        <path d="M370 42 C 382 18, 372 4, 362 4 C 388 10, 398 26, 400 42 Z" fill="#fff"/>
+      </svg>
+      <button class="sb-close" id="sbClose" aria-label="Închide">✕</button>
+      <div class="eyebrow">11–26 Octombrie 2026 · Cazare 12–25 Oct</div>
+      <h1>Circuit Bali: Cultură, Yacht, Elicopter &amp; Cele Mai Exclusive Locații ✨</h1>
+      <div class="price-line">De la 2.799 € / persoană · Cameră single: +550 €</div>
+      <div class="route-breadcrumb">Chișinău → Bali → Tukad Cepung → Ubud → Tanah Lot → Bali → Chișinău</div>
+      <div class="legend">
+        <span class="l-flight"><i></i>Zbor (via Istanbul)</span>
+        <span class="l-tour"><i></i>Excursie / activitate</span>
+      </div>
+    </div>
+
+    <div class="steps" id="stepsList"></div>
+  </aside>
+
+  <button id="reopenTab">☰ Program</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+  // ---------- Data ----------
+  const PLACES = {
+    chi:  { name:'Chișinău',      lat:47.0105, lng:28.8638,  waypoint:true,  zoom:5  },
+    ist:  { name:'Istanbul',      lat:41.0082, lng:28.9784,  waypoint:true,  zoom:5  },
+    bali: { name:'Bali · Nusa Dua', lat:-8.7999, lng:115.2251, waypoint:false, zoom:11 },
+    tukad:{ name:'Tukad Cepung',  lat:-8.4225, lng:115.3639, waypoint:false, zoom:12 },
+    ubud: { name:'Ubud',          lat:-8.5069, lng:115.2624, waypoint:false, zoom:12 },
+    tlot: { name:'Tanah Lot',     lat:-8.6211, lng:115.0868, waypoint:false, zoom:12 },
+  };
+
+  // Long-haul flight legs (animated, looping out-and-back)
+  const FLIGHT_LEGS = [
+    { from:'chi', to:'ist' }, { from:'ist', to:'bali' },
+    { from:'bali', to:'ist' }, { from:'ist', to:'chi' },
+  ];
+  // Local excursions radiating from the Nusa Dua hotel base (static)
+  const TOUR_LEGS = [
+    { from:'bali', to:'tukad' }, { from:'bali', to:'ubud' }, { from:'bali', to:'tlot' },
+  ];
+
+  const STEPS = [
+    { n:1, cat:'Zbor tur-retur', title:'Chișinău – Bali via Istanbul', bounds:['chi','ist','bali'],
+      text:'Tur: decolare din Chișinău pe 11.10, ora 16:00, cu escală de 7h40m în Istanbul — sosire în Bali pe 12.10, ora 19:05. Retur: decolare din Bali pe 25.10, ora 22:00, escală de 2h10m în Istanbul — sosire în Chișinău pe 26.10, ora 09:05. Bagaje incluse: 1 bagaj de mână (8 kg), 1 troller (8 kg) și 1 bagaj de cală (30 kg).' },
+    { n:2, cat:'Cazare 5★', title:'Holiday Inn Resort Baruna Bali', focus:'bali',
+      text:'Cazare cu mic dejun (BB), în perioada 12–25 Octombrie 2026 (13 nopți), la Holiday Inn Resort Baruna Bali 5*, în Nusa Dua.' },
+    { n:3, cat:'Excursie inclusă', title:'Excursie Est', focus:'tukad',
+      text:'Cascada Tukad Cepung, templul Besakih, templul Lempuyang și palatul acvatic Tirta Gangga.' },
+    { n:4, cat:'Excursie inclusă', title:'Excursie Ubud', focus:'ubud',
+      text:'Pădurea Maimuțelor, izvoarele sacre Tirta Empul, templul Gunung Kawi, terasele de orez Tegallalang și cascada Kanto Lampo.' },
+    { n:5, cat:'Excursie inclusă', title:'Excursie Nord', focus:'tlot',
+      text:'Templul Tanah Lot, templul Ulun Danu Bratan, cascada Git-Git și Poarta Handara.' },
+    { n:6, cat:'Excursie inclusă', title:'Excursie cu iahtul · Nusa Penida', focus:'bali',
+      text:'Zi de snorkeling și fotografii subacvatice în jurul insulei Nusa Penida, cu prânz inclus la bord.' },
+    { n:7, cat:'Activități incluse', title:'Elicopter, rafting și Muntele Batur', focus:'bali',
+      text:'Zbor cu elicopterul de 18 minute deasupra Nusa Dua. Rafting pe râul Ayung, urmat de o plimbare cu ATV-ul. Tur privat cu jeep-ul la răsărit pe Muntele Batur, cu vizită la izvoarele termale.' },
+    { n:8, cat:'Beach club-uri incluse', title:'4 dintre cele mai exclusive beach club-uri din Bali', focus:'bali',
+      text:'Sundays Beach Club (loc pe plajă + consum inclus până la 25 €), Tropical Temptation Beach Club — adults only (șezlong + consum până la 50 €), Luna Beach Club (șezlong + consum până la 45 €) și FINNS Beach Club (șezlong + consum până la 50 €), unul dintre cele mai bune beach club-uri din lume.' },
+  ];
+
+  // ---------- Map ----------
+  const map = L.map('map', { zoomControl:false, attributionControl:true, worldCopyJump:true });
+  L.control.zoom({ position:'bottomright' }).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution:'© OpenStreetMap, © CARTO', maxZoom:19, subdomains:'abcd'
+  }).addTo(map);
+
+  const baliBounds = L.latLngBounds(['bali','tukad','ubud','tlot'].map(id=>[PLACES[id].lat,PLACES[id].lng]));
+  map.fitBounds(baliBounds, { padding:[100,100] });
+
+  function pillIcon(name, waypoint){
+    return L.divIcon({
+      className:'', html:`<div class="pill${waypoint?' waypoint':''}"><div class="pill-label">${name}</div><div class="pill-tail"></div></div>`,
+      iconSize:[0,0], iconAnchor:[0,0]
+    });
+  }
+
+  const markers = {};
+  Object.entries(PLACES).forEach(([id,p])=>{
+    const m = L.marker([p.lat,p.lng], { icon:pillIcon(p.name,p.waypoint) }).addTo(map);
+    markers[id] = m;
+    m.on('click', ()=> focusIds([id]));
+  });
+
+  FLIGHT_LEGS.slice(0,2).forEach(seg=>{
+    const a = PLACES[seg.from], b = PLACES[seg.to];
+    L.polyline([[a.lat,a.lng],[b.lat,b.lng]], { color:'#3E8FA6', weight:3, opacity:.8, dashArray:'1 11', lineCap:'round' }).addTo(map);
+  });
+  TOUR_LEGS.forEach(seg=>{
+    const a = PLACES[seg.from], b = PLACES[seg.to];
+    L.polyline([[a.lat,a.lng],[b.lat,b.lng]], { color:'#C99A3E', weight:3.5, opacity:.85, dashArray:'1 9', lineCap:'round' }).addTo(map);
+  });
+
+  // ---------- Moving plane along the flight legs only ----------
+  function haversine(a,b){
+    const R=6371, toRad=d=>d*Math.PI/180;
+    const dLat=toRad(b.lat-a.lat), dLng=toRad(b.lng-a.lng);
+    const s=Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLng/2)**2;
+    return 2*R*Math.asin(Math.sqrt(s));
+  }
+  const segDist = FLIGHT_LEGS.map(s=>haversine(PLACES[s.from],PLACES[s.to]));
+  const totalDist = segDist.reduce((a,b)=>a+b,0);
+  const LOOP_MS = 34000;
+
+  const mover = L.marker([PLACES.chi.lat,PLACES.chi.lng], {
+    icon: L.divIcon({ className:'', html:'<div class="mover">✈️</div>', iconSize:[0,0], iconAnchor:[0,0] }),
+    zIndexOffset:1000
+  }).addTo(map);
+
+  function animate(ts){
+    const t = (ts % LOOP_MS) / LOOP_MS;
+    let target = t * totalDist, acc = 0, idx = 0;
+    for(; idx < segDist.length; idx++){
+      if(acc + segDist[idx] >= target) break;
+      acc += segDist[idx];
+    }
+    idx = Math.min(idx, FLIGHT_LEGS.length-1);
+    const seg = FLIGHT_LEGS[idx];
+    const localT = segDist[idx] ? (target-acc)/segDist[idx] : 0;
+    const a = PLACES[seg.from], b = PLACES[seg.to];
+    mover.setLatLng([a.lat+(b.lat-a.lat)*localT, a.lng+(b.lng-a.lng)*localT]);
+    requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+
+  // ---------- Sidebar ----------
+  const stepsList = document.getElementById('stepsList');
+  STEPS.forEach(s=>{
+    const el = document.createElement('div');
+    el.className = 'step';
+    el.dataset.ids = JSON.stringify(s.bounds || [s.focus]);
+    el.innerHTML = `
+      <div class="step-num">${s.n}</div>
+      <div class="step-body">
+        <span class="step-cat">${s.cat}</span>
+        <h3>${s.title}</h3>
+        <p>${s.text}</p>
+      </div>`;
+    el.addEventListener('click', ()=> focusIds(s.bounds || [s.focus], el));
+    stepsList.appendChild(el);
+  });
+
+  const notice = document.createElement('div');
+  notice.className = 'notice';
+  notice.innerHTML = `
+    <h4>⚠ De reținut</h4>
+    <ul>
+      <li>Nu există un număr minim de participanți pentru operarea circuitului.</li>
+      <li>Grupuri de până la 15 persoane se deplasează pe insulă cu ghizi locali, fără reprezentant al agenției; peste 15 persoane, un reprezentant însoțește tot traseul.</li>
+      <li>Programul zilnic detaliat este disponibil separat, în format PDF.</li>
+    </ul>`;
+  stepsList.appendChild(notice);
+
+  function focusIds(ids, sourceEl){
+    if(ids.length > 1){
+      const b = L.latLngBounds(ids.map(id=>[PLACES[id].lat,PLACES[id].lng]));
+      map.flyToBounds(b, { padding:[90,90], duration:1.1 });
+    } else {
+      const p = PLACES[ids[0]];
+      map.flyTo([p.lat,p.lng], Math.max(map.getZoom(), p.zoom), { duration:.9 });
+    }
+
+    Object.entries(markers).forEach(([mid,m])=>{
+      const wrap = m.getElement()?.querySelector('.pill');
+      if(!wrap) return;
+      const active = ids.includes(mid);
+      wrap.classList.toggle('is-active', active);
+      if(active){ wrap.classList.remove('pulse'); void wrap.offsetWidth; wrap.classList.add('pulse'); }
+    });
+
+    document.querySelectorAll('.step').forEach(el=>{
+      const stepIds = JSON.parse(el.dataset.ids);
+      el.classList.toggle('active', stepIds.some(id=>ids.includes(id)));
+    });
+    if(sourceEl) sourceEl.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+
+  // ---------- Sidebar open/close ----------
+  const sidebar = document.getElementById('sidebar');
+  const reopenTab = document.getElementById('reopenTab');
+  document.getElementById('sbClose').addEventListener('click', ()=>{
+    sidebar.classList.add('hidden'); reopenTab.classList.add('show');
+  });
+  reopenTab.addEventListener('click', ()=>{
+    sidebar.classList.remove('hidden'); reopenTab.classList.remove('show');
+  });
+
+  document.getElementById('reserveBtn').addEventListener('click', ()=>{
+    alert('Conectează acest buton la pagina de rezervare a circuitului.');
+  });
+</script>
+</body>
+</html>

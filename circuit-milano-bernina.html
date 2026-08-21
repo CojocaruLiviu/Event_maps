@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Milano &amp; Bernina Express · 11–14 Decembrie 2027</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
+
+  :root{
+    --pine:        #1F6B45;
+    --pine-dark:   #10331F;
+    --pine-light:  #2F8F5B;
+    --glacier:     #4A7FA6;
+    --glacier-soft:#DDE9F0;
+    --transit:     #8A7F6B;
+    --snow:        #FAFAF7;
+    --stone:       #EFEBE3;
+    --ink:         #172019;
+    --ink-soft:    #57625B;
+    --line:        rgba(16,51,31,0.10);
+    --warn-bg:     #F5EFE2;
+    --warn-edge:   #B8863B;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;
+    font-family:'Inter',system-ui,sans-serif;color:var(--ink);background:var(--snow);}
+
+  #app{position:relative;width:100vw;height:100vh;}
+  #map{position:absolute;inset:0;background:#e9e7e1;}
+  .leaflet-control-attribution{font-size:10px;opacity:.6;background:rgba(255,255,255,.75)!important;}
+  .leaflet-control-zoom{border:none!important;margin:0 16px 18px 0!important;}
+  .leaflet-control-zoom a{
+    border-radius:10px!important;color:var(--pine-dark)!important;
+    box-shadow:0 2px 10px rgba(16,51,31,.15)!important;border:1px solid var(--line)!important;
+  }
+
+  /* ---------- Reserve button ---------- */
+  #reserveBtn{
+    position:absolute;top:20px;left:20px;z-index:500;
+    display:inline-flex;align-items:center;gap:8px;
+    background:var(--pine);color:#fff;border:none;border-radius:999px;
+    padding:13px 22px 13px 18px;font:600 14.5px 'Inter',sans-serif;letter-spacing:.2px;
+    cursor:pointer;box-shadow:0 6px 18px rgba(16,51,31,.28);
+    transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+  }
+  #reserveBtn:hover{background:var(--pine-light);transform:translateY(-1px);box-shadow:0 8px 22px rgba(16,51,31,.34);}
+  #reserveBtn svg{width:16px;height:16px;flex:none;}
+
+  /* ---------- Map pill markers ---------- */
+  .pill{display:inline-flex;flex-direction:column;align-items:center;transform:translate(-50%,-100%);}
+  .pill-label{
+    background:var(--pine);color:#fff;font:700 12.5px 'Inter',sans-serif;letter-spacing:.2px;
+    padding:6px 12px;border-radius:8px;white-space:nowrap;box-shadow:0 4px 12px rgba(16,51,31,.30);
+    border:1.5px solid rgba(255,255,255,.5);
+    transition:transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease;
+  }
+  .pill.waypoint .pill-label{background:var(--pine-light);font-weight:600;padding:5px 10px;font-size:11.5px;}
+  .pill-tail{width:9px;height:9px;background:var(--pine);transform:rotate(45deg) translateY(-6px);
+    box-shadow:0 4px 8px rgba(16,51,31,.2);}
+  .pill.waypoint .pill-tail{background:var(--pine-light);}
+  .pill.is-active .pill-label{transform:scale(1.12);box-shadow:0 6px 18px rgba(16,51,31,.45);}
+  .pill.pulse .pill-label{animation:pulse .8s ease;}
+  @keyframes pulse{0%{transform:scale(1);} 40%{transform:scale(1.28);} 100%{transform:scale(1.12);}}
+
+  .mover{display:flex;align-items:center;justify-content:center;width:30px;height:30px;
+    border-radius:50%;background:#fff;box-shadow:0 3px 10px rgba(16,51,31,.35);
+    border:2px solid var(--pine);font-size:15px;transform:translate(-50%,-50%);}
+
+  /* ---------- Sidebar ---------- */
+  #sidebar{
+    position:absolute;top:0;right:0;height:100%;width:410px;max-width:88vw;
+    background:var(--snow);z-index:600;display:flex;flex-direction:column;
+    box-shadow:-8px 0 30px rgba(16,51,31,.14);
+    transition:transform .35s cubic-bezier(.65,0,.35,1);
+  }
+  #sidebar.hidden{transform:translateX(100%);}
+
+  .sb-header{position:relative;padding:26px 26px 20px;background:linear-gradient(160deg,var(--pine-dark),var(--pine) 85%);
+    color:#fff;overflow:hidden;flex:none;}
+  .sb-header .peaks{position:absolute;left:0;right:0;bottom:0;height:46px;opacity:.35;}
+  .sb-close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;
+    background:rgba(255,255,255,.15);border:none;color:#fff;font-size:16px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transition:background .15s ease;}
+  .sb-close:hover{background:rgba(255,255,255,.28);}
+  .eyebrow{font:700 11px 'Inter',sans-serif;letter-spacing:1.4px;text-transform:uppercase;
+    color:#BFE0CC;position:relative;z-index:1;}
+  .sb-header h1{font:600 24px/1.25 'Fraunces',serif;margin:8px 0 12px;position:relative;z-index:1;}
+  .route-breadcrumb{font:500 12px 'Inter',sans-serif;color:#DCEFE3;line-height:1.6;position:relative;z-index:1;}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;position:relative;z-index:1;}
+  .legend span{display:flex;align-items:center;gap:6px;font:500 11.5px 'Inter',sans-serif;color:#E8F3EC;}
+  .legend i{width:16px;height:0;display:inline-block;}
+  .l-train i{border-top:3px dashed #8FD9B0;}
+  .l-bus i{border-top:2px dashed #D8D2C4;opacity:.85;}
+  .l-flight i{border-top:2.5px dashed #9CC6E6;}
+
+  .steps{flex:1;overflow-y:auto;padding:6px 0 26px;}
+  .steps::-webkit-scrollbar{width:6px;}
+  .steps::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px;}
+
+  .step{display:flex;gap:14px;padding:18px 26px;cursor:pointer;border-left:3px solid transparent;
+    transition:background .18s ease, border-color .18s ease;}
+  .step:hover{background:var(--stone);}
+  .step.active{background:var(--glacier-soft);border-left-color:var(--pine);}
+  .step-num{flex:none;width:28px;height:28px;border-radius:50%;background:var(--pine);color:#fff;
+    display:flex;align-items:center;justify-content:center;font:700 13px 'Inter',sans-serif;margin-top:2px;}
+  .step-body h3{margin:0 0 2px;font:600 15px 'Fraunces',serif;color:var(--ink);}
+  .step-date{display:block;font:600 10.5px 'Inter',sans-serif;letter-spacing:.3px;text-transform:uppercase;
+    color:var(--ink-soft);opacity:.75;margin-bottom:6px;}
+  .step-body p{margin:0;font:400 13.5px/1.62 'Inter',sans-serif;color:var(--ink-soft);}
+  .tag{display:inline-block;margin-top:9px;font:600 10.5px 'Inter',sans-serif;letter-spacing:.3px;
+    text-transform:uppercase;color:var(--pine);background:rgba(31,107,69,.09);
+    padding:3px 9px;border-radius:999px;}
+
+  .notice{margin:6px 26px 0;padding:14px 16px;background:var(--warn-bg);border-left:3px solid var(--warn-edge);
+    border-radius:0 10px 10px 0;}
+  .notice h4{margin:0 0 8px;font:700 11.5px 'Inter',sans-serif;letter-spacing:.3px;text-transform:uppercase;
+    color:#8A6425;display:flex;align-items:center;gap:6px;}
+  .notice ul{margin:0;padding-left:18px;}
+  .notice li{font:400 12.5px/1.55 'Inter',sans-serif;color:#5E4E2E;margin-bottom:6px;}
+  .notice li:last-child{margin-bottom:0;}
+
+  #reopenTab{
+    position:absolute;top:24px;right:0;z-index:601;background:var(--pine);color:#fff;border:none;
+    padding:12px 14px;border-radius:10px 0 0 10px;font:600 12.5px 'Inter',sans-serif;cursor:pointer;
+    box-shadow:-4px 4px 14px rgba(16,51,31,.25);display:none;align-items:center;gap:6px;
+  }
+  #reopenTab.show{display:flex;}
+
+  @media (max-width:760px){
+    #sidebar{top:auto;bottom:0;left:0;right:0;width:100%;max-width:100%;height:58vh;
+      border-radius:18px 18px 0 0;transition:transform .35s cubic-bezier(.65,0,.35,1);}
+    #sidebar.hidden{transform:translateY(100%);}
+    #reopenTab{top:auto;bottom:20px;right:16px;border-radius:999px;box-shadow:0 6px 18px rgba(16,51,31,.3);}
+    #reserveBtn{padding:11px 18px 11px 15px;font-size:13.5px;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="map"></div>
+
+  <button id="reserveBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    Rezervă acum
+  </button>
+
+  <aside id="sidebar">
+    <div class="sb-header">
+      <svg class="peaks" viewBox="0 0 400 46" preserveAspectRatio="none"><path d="M0 46 L40 14 L70 30 L110 4 L150 26 L190 10 L230 34 L270 12 L310 28 L345 6 L400 24 L400 46 Z" fill="#fff"/></svg>
+      <button class="sb-close" id="sbClose" aria-label="Închide">✕</button>
+      <div class="eyebrow">11–14 Decembrie 2027 · 4 zile / 3 nopți</div>
+      <h1>Milano &amp; Trenul Panoramic Bernina Express ✨</h1>
+      <div class="route-breadcrumb">Chișinău → Milano → St. Moritz → Ospizio Bernina → Tirano → Milano → Chișinău</div>
+      <div class="legend">
+        <span class="l-train"><i></i>Bernina Express</span>
+        <span class="l-bus"><i></i>Autocar</span>
+        <span class="l-flight"><i></i>Zbor</span>
+      </div>
+    </div>
+
+    <div class="steps" id="stepsList"></div>
+  </aside>
+
+  <button id="reopenTab">☰ Itinerariu</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+  // ---------- Data ----------
+  const PLACES = {
+    chi: { name:'Chișinău',        lat:47.0105, lng:28.8638, waypoint:false },
+    mil: { name:'Milano',          lat:45.4642, lng:9.1900,  waypoint:false },
+    stm: { name:'St. Moritz',      lat:46.4908, lng:9.8355,  waypoint:false },
+    osp: { name:'Ospizio Bernina', lat:46.4128, lng:9.9186,  waypoint:true  },
+    tir: { name:'Tirano',          lat:46.2144, lng:10.1687, waypoint:true  },
+  };
+
+  const MODE_STYLE = {
+    train:  { color:'#1F6B45', weight:5, opacity:.90, dash:'1 9'  },
+    bus:    { color:'#8A7F6B', weight:2, opacity:.55, dash:'4 8'  },
+    flight: { color:'#4A7FA6', weight:3, opacity:.80, dash:'1 11' },
+  };
+  const MODE_EMOJI = { train:'🚞', bus:'🚌', flight:'✈️' };
+
+  const SEGMENTS = [
+    { from:'chi', to:'mil', mode:'flight' },
+    { from:'mil', to:'stm', mode:'bus'    },
+    { from:'stm', to:'osp', mode:'train'  },
+    { from:'osp', to:'tir', mode:'train'  },
+    { from:'tir', to:'mil', mode:'bus'    },
+    { from:'mil', to:'chi', mode:'flight' },
+  ];
+
+  const STEPS = [
+    { n:1, date:'Vineri, 11 Decembrie', title:'Bine ați venit în Capitala Modei!', focus:'mil',
+      tag:'Cazare: Doria Grand Hotel 4★, Milano',
+      text:'Prezentare la Aeroportul Chișinău (RMO) la 06:50, decolare 09:50 spre Milano — zbor direct, 2h45m. Aterizare pe Malpensa (MXP) la 11:35, transfer cu Malpensa Express spre Stazione Centrale și cazare la Doria Grand Hotel 4★. După-amiază: atmosferă de Crăciun pe Corso Buenos Aires, Piazza del Duomo cu bradul uriaș și Galleria Vittorio Emanuele II — opțional, aperitivo în cartierul Brera.' },
+    { n:2, date:'Sâmbătă, 12 Decembrie', title:'Elveția de poveste și Bernina Express', focus:'osp',
+      tag:'Cazare: Doria Grand Hotel 4★, Milano',
+      text:'Mic dejun la hotel. Plecare cu autocarul la 09:00 prin peisajele înzăpezite ale Alpilor spre St. Moritz — timp liber pe zona pietonală, la lacul înghețat și la celebra cofetărie Hanselmann (din 1894). La 15:20, îmbarcare în trenul Bernina Express (patrimoniu UNESCO): Pontresina, Diavolezza, Ospizio Bernina (2.253 m — cel mai înalt punct), Alp Grüm și coborârea spectaculoasă prin Val Poschiavo, până la Tirano. Transfer cu autocarul înapoi la Milano, sosire ~21:00.' },
+    { n:3, date:'Duminică, 13 Decembrie', title:'Arta gotică și terasele Domului', focus:'mil',
+      tag:'Check-out seara',
+      text:'Mic dejun. Dimineață liberă — Castel Sforzesco, Parcul Sempione sau shopping. La 15:30, tur ghidat Fast-Track al Domului din Milano: interior, vitralii, zonă arheologică și urcare cu liftul pe terasele de piatră pentru priveliște panoramică. Vizită la Muzeul Duomo, Biserica San Gottardo și Târgul de Crăciun din piață. Seara, bagajele se pregătesc pentru plecare.' },
+    { n:4, date:'Luni, 14 Decembrie', title:'Rămas bun, Milano!', focus:'chi',
+      tag:'Sosire Chișinău dimineața',
+      text:'Transfer nocturn spre Gara Milano Centrale pentru ultimul tren Malpensa Express (23:25 — nu așteaptă!). Sosire pe Malpensa la 00:40, check-in de zbor 02:20, decolare spre Chișinău la 05:30. * Pentru grupuri de minimum 10 persoane se poate activa transferul privat de noapte cu autocarul, direct de la hotel, la 01:30.' },
+  ];
+
+  // ---------- Map ----------
+  const map = L.map('map', { zoomControl:false, attributionControl:true, worldCopyJump:true });
+  L.control.zoom({ position:'bottomright' }).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution:'© OpenStreetMap, © CARTO', maxZoom:19, subdomains:'abcd'
+  }).addTo(map);
+
+  const bounds = L.latLngBounds(Object.values(PLACES).map(p=>[p.lat,p.lng]));
+  map.fitBounds(bounds, { padding:[90,90] });
+
+  function pillIcon(name, waypoint){
+    return L.divIcon({
+      className:'', html:`<div class="pill${waypoint?' waypoint':''}"><div class="pill-label">${name}</div><div class="pill-tail"></div></div>`,
+      iconSize:[0,0], iconAnchor:[0,0]
+    });
+  }
+
+  const markers = {};
+  Object.entries(PLACES).forEach(([id,p])=>{
+    const m = L.marker([p.lat,p.lng], { icon:pillIcon(p.name,p.waypoint) }).addTo(map);
+    markers[id] = m;
+    m.on('click', ()=> focusPlace(id));
+  });
+
+  SEGMENTS.forEach(seg=>{
+    const a = PLACES[seg.from], b = PLACES[seg.to], st = MODE_STYLE[seg.mode];
+    L.polyline([[a.lat,a.lng],[b.lat,b.lng]], {
+      color:st.color, weight:st.weight, opacity:st.opacity, dashArray:st.dash, lineCap:'round'
+    }).addTo(map);
+  });
+
+  // ---------- Moving icon along the whole route ----------
+  function haversine(a,b){
+    const R=6371, toRad=d=>d*Math.PI/180;
+    const dLat=toRad(b.lat-a.lat), dLng=toRad(b.lng-a.lng);
+    const s=Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLng/2)**2;
+    return 2*R*Math.asin(Math.sqrt(s));
+  }
+  const segDist = SEGMENTS.map(s=>haversine(PLACES[s.from],PLACES[s.to]));
+  const totalDist = segDist.reduce((a,b)=>a+b,0);
+  const LOOP_MS = 30000;
+
+  const mover = L.marker([PLACES.chi.lat,PLACES.chi.lng], {
+    icon: L.divIcon({ className:'', html:'<div class="mover">✈️</div>', iconSize:[0,0], iconAnchor:[0,0] }),
+    zIndexOffset:1000
+  }).addTo(map);
+
+  function animate(ts){
+    const t = (ts % LOOP_MS) / LOOP_MS;
+    let target = t * totalDist, acc = 0, idx = 0;
+    for(; idx < segDist.length; idx++){
+      if(acc + segDist[idx] >= target) break;
+      acc += segDist[idx];
+    }
+    idx = Math.min(idx, SEGMENTS.length-1);
+    const seg = SEGMENTS[idx];
+    const localT = segDist[idx] ? (target-acc)/segDist[idx] : 0;
+    const a = PLACES[seg.from], b = PLACES[seg.to];
+    mover.setLatLng([a.lat+(b.lat-a.lat)*localT, a.lng+(b.lng-a.lng)*localT]);
+    const emoji = MODE_EMOJI[seg.mode];
+    const el = mover.getElement();
+    if(el){ const inner = el.querySelector('.mover'); if(inner && inner.textContent !== emoji) inner.textContent = emoji; }
+    requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+
+  // ---------- Sidebar ----------
+  const stepsList = document.getElementById('stepsList');
+  STEPS.forEach(s=>{
+    const el = document.createElement('div');
+    el.className = 'step';
+    el.dataset.focus = s.focus;
+    el.innerHTML = `
+      <div class="step-num">${s.n}</div>
+      <div class="step-body">
+        <span class="step-date">${s.date}</span>
+        <h3>${s.title}</h3>
+        <p>${s.text}</p>
+        <span class="tag">${s.tag}</span>
+      </div>`;
+    el.addEventListener('click', ()=> focusPlace(s.focus, el));
+    stepsList.appendChild(el);
+  });
+
+  const notice = document.createElement('div');
+  notice.className = 'notice';
+  notice.innerHTML = `
+    <h4>⚠ De reținut</h4>
+    <ul>
+      <li>La Domul din Milano: fără rucsacuri mari, valize, obiecte ascuțite sau sticlă; umerii și genunchii trebuie acoperiți, glugile jos.</li>
+      <li>Trenurile și autocarele (Italia &amp; Elveția) pleacă exact la oră — întârzierea înseamnă pierderea transportului pe cont propriu.</li>
+    </ul>`;
+  stepsList.appendChild(notice);
+
+  function focusPlace(id, sourceEl){
+    const p = PLACES[id];
+    map.flyTo([p.lat,p.lng], Math.max(map.getZoom(), 7), { duration:.9 });
+
+    Object.entries(markers).forEach(([mid,m])=>{
+      const wrap = m.getElement()?.querySelector('.pill');
+      if(!wrap) return;
+      wrap.classList.toggle('is-active', mid===id);
+      if(mid===id){ wrap.classList.remove('pulse'); void wrap.offsetWidth; wrap.classList.add('pulse'); }
+    });
+
+    document.querySelectorAll('.step').forEach(el=>{
+      el.classList.toggle('active', el.dataset.focus===id);
+    });
+    if(sourceEl) sourceEl.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+
+  // ---------- Sidebar open/close ----------
+  const sidebar = document.getElementById('sidebar');
+  const reopenTab = document.getElementById('reopenTab');
+  document.getElementById('sbClose').addEventListener('click', ()=>{
+    sidebar.classList.add('hidden'); reopenTab.classList.add('show');
+  });
+  reopenTab.addEventListener('click', ()=>{
+    sidebar.classList.remove('hidden'); reopenTab.classList.remove('show');
+  });
+
+  document.getElementById('reserveBtn').addEventListener('click', ()=>{
+    alert('Conectează acest buton la pagina de rezervare a circuitului.');
+  });
+</script>
+</body>
+</html>
