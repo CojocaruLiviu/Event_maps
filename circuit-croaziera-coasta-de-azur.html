@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Croaziera „Coasta de Azur” pe nava MSC Grandiosa (Marea Mediterană) – 7 Nopți</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
+
+  :root{
+    --sea-deep:   #0B2E4A;
+    --sea:        #1C6E8C;
+    --sea-light:  #2E93B0;
+    --sun:        #D6A537;
+    --foam:       #F1F5F4;
+    --panel:      #DCE8E6;
+    --ink:        #14232B;
+    --ink-soft:   #4C6672;
+    --line:       rgba(15,39,51,0.10);
+    --warn-bg:    #FBEEE7;
+    --warn-edge:  #C15A34;
+    --ok-bg:      #E6F1EF;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;
+    font-family:'Inter',system-ui,sans-serif;color:var(--ink);background:var(--foam);}
+
+  #app{position:relative;width:100vw;height:100vh;}
+  #map{position:absolute;inset:0;background:#DCE7E6;}
+  .leaflet-control-attribution{font-size:10px;opacity:.6;background:rgba(255,255,255,.75)!important;}
+  .leaflet-control-zoom{border:none!important;margin:0 16px 18px 0!important;}
+  .leaflet-control-zoom a{
+    border-radius:10px!important;color:var(--sea-deep)!important;
+    box-shadow:0 2px 10px rgba(11,46,74,.15)!important;border:1px solid var(--line)!important;
+  }
+
+  /* ---------- Reserve button ---------- */
+  #reserveBtn{
+    position:absolute;top:20px;left:20px;z-index:500;
+    display:inline-flex;align-items:center;gap:8px;
+    background:var(--sea);color:#fff;border:none;border-radius:999px;
+    padding:13px 22px 13px 18px;font:600 14.5px 'Inter',sans-serif;letter-spacing:.2px;
+    cursor:pointer;box-shadow:0 6px 18px rgba(11,46,74,.32);
+    transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+  }
+  #reserveBtn:hover{background:var(--sea-light);transform:translateY(-1px);box-shadow:0 8px 22px rgba(11,46,74,.4);}
+  #reserveBtn svg{width:16px;height:16px;flex:none;}
+
+  /* ---------- Map pill markers ---------- */
+  .pill{display:inline-flex;flex-direction:column;align-items:center;transform:translate(-50%,-100%);}
+  .pill-label{
+    background:var(--sea);color:#fff;font:700 12.5px 'Inter',sans-serif;letter-spacing:.2px;
+    padding:6px 12px;border-radius:8px;white-space:nowrap;box-shadow:0 4px 12px rgba(11,46,74,.32);
+    border:1.5px solid rgba(255,255,255,.5);
+    transition:transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease;
+  }
+  .pill.waypoint .pill-label{background:var(--sun);color:#3D2E05;font-weight:700;padding:5px 10px;font-size:11.5px;}
+  .pill-tail{width:9px;height:9px;background:var(--sea);transform:rotate(45deg) translateY(-6px);
+    box-shadow:0 4px 8px rgba(11,46,74,.22);}
+  .pill.waypoint .pill-tail{background:var(--sun);}
+  .pill.is-active .pill-label{transform:scale(1.12);box-shadow:0 6px 18px rgba(11,46,74,.48);}
+  .pill.pulse .pill-label{animation:pulse .8s ease;}
+  @keyframes pulse{0%{transform:scale(1);} 40%{transform:scale(1.28);} 100%{transform:scale(1.12);}}
+
+  .mover{display:flex;align-items:center;justify-content:center;width:34px;height:34px;
+    font-size:26px;line-height:1;transform:translate(-50%,-50%);
+    filter:drop-shadow(0 3px 6px rgba(20,35,43,.5));}
+
+  /* ---------- Wake trail on the sailing route ---------- */
+  .route-line{stroke-dasharray:2 13;animation:sail 5.5s linear infinite;}
+  @keyframes sail{to{stroke-dashoffset:-150;}}
+  @media (prefers-reduced-motion:reduce){
+    .route-line{animation:none;}
+  }
+
+  /* ---------- Sidebar ---------- */
+  #sidebar{
+    position:absolute;top:0;right:0;height:100%;width:410px;max-width:88vw;
+    background:var(--foam);z-index:600;display:flex;flex-direction:column;
+    box-shadow:-8px 0 30px rgba(20,35,43,.16);
+    transition:transform .35s cubic-bezier(.65,0,.35,1);
+  }
+  #sidebar.hidden{transform:translateX(100%);}
+
+  .sb-header{position:relative;padding:26px 26px 22px;background:linear-gradient(155deg,var(--sea-deep),var(--sea) 85%);
+    color:#fff;overflow:hidden;flex:none;}
+  .sb-header .waves{position:absolute;left:0;right:0;bottom:0;height:40px;opacity:.28;}
+  .sb-close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;
+    background:rgba(255,255,255,.16);border:none;color:#fff;font-size:16px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transition:background .15s ease;}
+  .sb-close:hover{background:rgba(255,255,255,.3);}
+  .eyebrow{font:700 11px 'Inter',sans-serif;letter-spacing:1.3px;text-transform:uppercase;
+    color:#BFE0E8;position:relative;z-index:1;}
+  .sb-header h1{font:600 22px/1.28 'Fraunces',serif;margin:8px 0 10px;position:relative;z-index:1;}
+  .route-breadcrumb{font:500 12px 'Inter',sans-serif;color:#E9F3F1;line-height:1.6;position:relative;z-index:1;}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;position:relative;z-index:1;}
+  .legend span{display:flex;align-items:center;gap:6px;font:500 11.5px 'Inter',sans-serif;color:#EEF6F5;}
+  .legend i{width:16px;height:0;display:inline-block;}
+  .l-route i{border-top:2.5px dashed #A8DDE6;}
+  .l-excursion i{border-top:3px dashed #F0D989;}
+
+  .steps{flex:1;overflow-y:auto;padding:6px 0 26px;}
+  .steps::-webkit-scrollbar{width:6px;}
+  .steps::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px;}
+
+  .step{display:flex;gap:14px;padding:16px 26px;cursor:pointer;border-left:3px solid transparent;
+    transition:background .18s ease, border-color .18s ease;}
+  .step:hover{background:var(--panel);}
+  .step.active{background:#E3EFED;border-left-color:var(--sea);}
+  .step-num{flex:none;width:27px;height:27px;border-radius:50%;background:var(--sea);color:#fff;
+    display:flex;align-items:center;justify-content:center;font:700 12.5px 'Inter',sans-serif;margin-top:2px;}
+  .step-body h3{margin:0 0 2px;font:600 14.5px 'Fraunces',serif;color:var(--ink);}
+  .step-date{display:block;font:600 10.5px 'Inter',sans-serif;letter-spacing:.3px;text-transform:uppercase;
+    color:var(--ink-soft);opacity:.8;margin-bottom:6px;}
+  .step-body p{margin:0;font:400 13px/1.6 'Inter',sans-serif;color:var(--ink-soft);}
+  .tag{display:inline-block;margin-top:8px;font:600 10.5px 'Inter',sans-serif;letter-spacing:.3px;
+    text-transform:uppercase;color:var(--sea-deep);background:rgba(28,110,140,.10);
+    padding:3px 9px;border-radius:999px;}
+
+  .notice{margin:6px 26px 0;padding:14px 16px;border-radius:0 10px 10px 0;}
+  .notice.ok{background:var(--ok-bg);border-left:3px solid var(--sea);}
+  .notice.warn{background:var(--warn-bg);border-left:3px solid var(--warn-edge);}
+  .notice h4{margin:0 0 8px;font:700 11.5px 'Inter',sans-serif;letter-spacing:.3px;text-transform:uppercase;
+    display:flex;align-items:center;gap:6px;}
+  .notice.ok h4{color:var(--sea-deep);}
+  .notice.warn h4{color:#8A4425;}
+  .notice ul{margin:0;padding-left:18px;}
+  .notice.ok li{color:#2C4F4A;}
+  .notice.warn li{color:#5E3F2E;}
+  .notice li{font:400 12.5px/1.55 'Inter',sans-serif;margin-bottom:6px;}
+  .notice li:last-child{margin-bottom:0;}
+
+  #reopenTab{
+    position:absolute;top:24px;right:0;z-index:601;background:var(--sea);color:#fff;border:none;
+    padding:12px 14px;border-radius:10px 0 0 10px;font:600 12.5px 'Inter',sans-serif;cursor:pointer;
+    box-shadow:-4px 4px 14px rgba(11,46,74,.28);display:none;align-items:center;gap:6px;
+  }
+  #reopenTab.show{display:flex;}
+
+  @media (max-width:760px){
+    #sidebar{top:auto;bottom:0;left:0;right:0;width:100%;max-width:100%;height:60vh;
+      border-radius:18px 18px 0 0;transition:transform .35s cubic-bezier(.65,0,.35,1);}
+    #sidebar.hidden{transform:translateY(100%);}
+    #reopenTab{top:auto;bottom:20px;right:16px;border-radius:999px;box-shadow:0 6px 18px rgba(11,46,74,.32);}
+    #reserveBtn{padding:11px 18px 11px 15px;font-size:13.5px;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="map"></div>
+
+  <button id="reserveBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    Rezervă acum
+  </button>
+
+  <aside id="sidebar">
+    <div class="sb-header">
+      <svg class="waves" viewBox="0 0 400 40" preserveAspectRatio="none">
+        <path d="M0 30 Q20 20 40 30 T80 30 T120 30 T160 30 T200 30 T240 30 T280 30 T320 30 T360 30 T400 30 V40 H0 Z" fill="#fff"/>
+        <circle cx="342" cy="12" r="9" fill="#fff" opacity=".7"/>
+      </svg>
+      <button class="sb-close" id="sbClose" aria-label="Închide">✕</button>
+      <div class="eyebrow">MSC Grandiosa · 8 zile / 7 nopți</div>
+      <h1>Croaziera „Coasta de Azur” ⚓</h1>
+      <div class="route-breadcrumb">Civitavecchia → Palma de Mallorca → Barcelona → Cannes → Genova → La Spezia → Civitavecchia ↺</div>
+      <div class="legend">
+        <span class="l-route"><i></i>Traseu croazieră</span>
+        <span class="l-excursion"><i></i>Excursie opțională</span>
+      </div>
+    </div>
+
+    <div class="steps" id="stepsList"></div>
+  </aside>
+
+  <button id="reopenTab">☰ Program</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+  // ---------- Data ----------
+  const PLACES = {
+    civ:      { name:'Civitavecchia', lat:42.0942, lng:11.7955, waypoint:false, zoom:10 },
+    palma:    { name:'Palma de Mallorca', lat:39.5696, lng:2.6502, waypoint:false, zoom:11 },
+    barcelona:{ name:'Barcelona',     lat:41.3851, lng:2.1734,  waypoint:false, zoom:11 },
+    cannes:   { name:'Cannes',        lat:43.5528, lng:7.0174,  waypoint:false, zoom:11 },
+    genova:   { name:'Genova',        lat:44.4056, lng:8.9463,  waypoint:false, zoom:11 },
+    laspezia: { name:'La Spezia',     lat:44.1024, lng:9.8246,  waypoint:false, zoom:11 },
+    florence: { name:'Florența',      lat:43.7696, lng:11.2558, waypoint:true,  zoom:11 },
+  };
+
+  // Full sailing loop, in order — used both for the route line and for the ship's animation
+  const ROUTE_LEGS = [
+    { from:'civ',       to:'palma' },
+    { from:'palma',     to:'barcelona' },
+    { from:'barcelona', to:'cannes' },
+    { from:'cannes',    to:'genova' },
+    { from:'genova',    to:'laspezia' },
+    { from:'laspezia',  to:'civ' },
+  ];
+  const EXCURSION_LEGS = [ { from:'laspezia', to:'florence' } ];
+
+  const STEPS = [
+    { n:1, date:'Ziua 1', title:'Civitavecchia (Roma), Italia — Îmbarcare', focus:'civ',
+      tag:'Îmbarcare: 10:00–15:00 · Plecare 19:00',
+      text:'Îmbarcare pe navă între 10:00 și 15:00 (ghișeele de check-in se închid la 16:00). Nava ridică ancora din portul Civitavecchia la ora 19:00, pornind spre Marea Mediterană.' },
+    { n:2, date:'Ziua 2', title:'Zi liberă pe mare', bounds:['civ','palma'],
+      tag:'Zi în larg',
+      text:'Timp liber pentru relaxare și bucurarea de facilitățile navei — piscine, jacuzzi, săli de fitness și programul zilnic de divertisment de la bord.' },
+    { n:3, date:'Ziua 3', title:'Palma de Mallorca, Spania', focus:'palma',
+      tag:'Escală: 09:00–21:00 (12h) · Opțional 57 €',
+      text:'Sosire în port la 09:00, plecare la 21:00 — o escală de 12 ore. Timp liber pentru plajă și oraș, sau excursia opțională de grup „Plimbare prin capitala Mallorcăi” (3h) – 57 €.' },
+    { n:4, date:'Ziua 4', title:'Barcelona, Spania', focus:'barcelona',
+      tag:'Escală: 08:00–17:00 (9h) · Opțional 47 €',
+      text:'Sosire la 08:00, plecare la 17:00 — 9 ore de escală. Timp liber sau excursia opțională de grup „Barcelona cea diversă” (4h) – 47 €.' },
+    { n:5, date:'Ziua 5', title:'Cannes, Franța', focus:'cannes',
+      tag:'Escală: 09:00–19:00 (10h) · Opțional 51 €',
+      text:'Sosire la 09:00, plecare la 19:00 — 10 ore de escală pe Coasta de Azur franceză. Timp liber sau excursia opțională de grup „Descoperim Cannes: o privire din interior” (3h) – 51 €.' },
+    { n:6, date:'Ziua 6', title:'Genova, Italia', focus:'genova',
+      tag:'Escală: 08:00–18:00 (10h) · Opțional 45 € / 1.030 €',
+      text:'Sosire la 08:00, plecare la 18:00 — 10 ore de escală. Timp liber sau două excursii opționale: „Capitala Liguriei”, de grup (3h) – 45 €, sau un tur panoramic individual prin Genova, cu ghid privat (4h) – 1.030 €.' },
+    { n:7, date:'Ziua 7', title:'La Spezia, Italia', bounds:['laspezia','florence'],
+      tag:'Escală: 07:00–18:00 (11h) · Opțional 125 €',
+      text:'Sosire la 07:00, plecare la 18:00 — cea mai lungă escală din circuit, 11 ore. Timp liber sau excursia opțională de grup „Patrimoniul cultural al Florenței” (8,5h) – 125 €, cu deplasare spre Toscana.' },
+    { n:8, date:'Ziua 8', title:'Civitavecchia, Italia — Debarcare', focus:'civ',
+      tag:'Sosire în port: 07:00',
+      text:'Nava intră în port la ora 07:00. Debarcare și încheierea croazierei, după 7 nopți petrecute la bordul navei MSC Grandiosa.' },
+  ];
+
+  // ---------- Map ----------
+  const map = L.map('map', { zoomControl:false, attributionControl:true, worldCopyJump:true });
+  L.control.zoom({ position:'bottomright' }).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution:'© OpenStreetMap, © CARTO', maxZoom:19, subdomains:'abcd'
+  }).addTo(map);
+
+  const allBounds = L.latLngBounds(Object.values(PLACES).map(p=>[p.lat,p.lng]));
+  map.fitBounds(allBounds, { padding:[90,90] });
+
+  function pillIcon(name, waypoint){
+    return L.divIcon({
+      className:'', html:`<div class="pill${waypoint?' waypoint':''}"><div class="pill-label">${name}</div><div class="pill-tail"></div></div>`,
+      iconSize:[0,0], iconAnchor:[0,0]
+    });
+  }
+
+  const markers = {};
+  Object.entries(PLACES).forEach(([id,p])=>{
+    const m = L.marker([p.lat,p.lng], { icon:pillIcon(p.name,p.waypoint) }).addTo(map);
+    markers[id] = m;
+    m.on('click', ()=> focusIds([id]));
+  });
+
+  ROUTE_LEGS.forEach(seg=>{
+    const a = PLACES[seg.from], b = PLACES[seg.to];
+    L.polyline([[a.lat,a.lng],[b.lat,b.lng]], { className:'route-line', color:'#1C6E8C', weight:3, opacity:.85, lineCap:'round' }).addTo(map);
+  });
+  EXCURSION_LEGS.forEach(seg=>{
+    const a = PLACES[seg.from], b = PLACES[seg.to];
+    L.polyline([[a.lat,a.lng],[b.lat,b.lng]], { color:'#D6A537', weight:3, opacity:.85, dashArray:'2 8', lineCap:'round' }).addTo(map);
+  });
+
+  // ---------- Ship sailing the full loop ----------
+  function haversine(a,b){
+    const R=6371, toRad=d=>d*Math.PI/180;
+    const dLat=toRad(b.lat-a.lat), dLng=toRad(b.lng-a.lng);
+    const s=Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLng/2)**2;
+    return 2*R*Math.asin(Math.sqrt(s));
+  }
+  const segDist = ROUTE_LEGS.map(s=>haversine(PLACES[s.from],PLACES[s.to]));
+  const totalDist = segDist.reduce((a,b)=>a+b,0);
+  const LOOP_MS = 32000;
+
+  const shipIcon = L.divIcon({
+    className:'', iconSize:[0,0], iconAnchor:[0,0],
+    html:`<div class="mover">🛳️</div>`
+  });
+  const mover = L.marker([PLACES.civ.lat,PLACES.civ.lng], { icon:shipIcon, zIndexOffset:1000 }).addTo(map);
+
+  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function animate(ts){
+    const t = (ts % LOOP_MS) / LOOP_MS;
+    let target = t * totalDist, acc = 0, idx = 0;
+    for(; idx < segDist.length; idx++){
+      if(acc + segDist[idx] >= target) break;
+      acc += segDist[idx];
+    }
+    idx = Math.min(idx, ROUTE_LEGS.length-1);
+    const seg = ROUTE_LEGS[idx];
+    const localT = segDist[idx] ? (target-acc)/segDist[idx] : 0;
+    const a = PLACES[seg.from], b = PLACES[seg.to];
+    mover.setLatLng([a.lat+(b.lat-a.lat)*localT, a.lng+(b.lng-a.lng)*localT]);
+    requestAnimationFrame(animate);
+  }
+  if(!reduceMotion) requestAnimationFrame(animate);
+
+  // ---------- Sidebar ----------
+  const stepsList = document.getElementById('stepsList');
+  STEPS.forEach(s=>{
+    const el = document.createElement('div');
+    el.className = 'step';
+    el.dataset.ids = JSON.stringify(s.bounds || [s.focus]);
+    el.innerHTML = `
+      <div class="step-num">${s.n}</div>
+      <div class="step-body">
+        <span class="step-date">${s.date}</span>
+        <h3>${s.title}</h3>
+        <p>${s.text}</p>
+        <span class="tag">${s.tag}</span>
+      </div>`;
+    el.addEventListener('click', ()=> focusIds(s.bounds || [s.focus], el));
+    stepsList.appendChild(el);
+  });
+
+  const noticeOk = document.createElement('div');
+  noticeOk.className = 'notice ok';
+  noticeOk.innerHTML = `
+    <h4>✓ Inclus în preț</h4>
+    <ul>
+      <li>Cazare în tipul de cabină ales, pentru cele 7 nopți de croazieră.</li>
+      <li>Pensiune completă — mic dejun, prânz și cină.</li>
+      <li>Acces la facilitățile navei: piscine, săli de fitness, jacuzzi.</li>
+      <li>Programe de divertisment zilnice, spectacole și animație.</li>
+      <li>Taxele portuare.</li>
+      <li>Asistență în limba rusă la bord, la plecările selectate.</li>
+    </ul>`;
+  stepsList.appendChild(noticeOk);
+
+  const noticeWarn = document.createElement('div');
+  noticeWarn.className = 'notice warn';
+  noticeWarn.innerHTML = `
+    <h4>✗ Nu este inclus</h4>
+    <ul>
+      <li>Biletele avia tur-retur către orașul de îmbarcare.</li>
+      <li>Transferurile aeroport – port – aeroport.</li>
+      <li>Taxa de serviciu (bacșișul obligatoriu pentru personal), achitată la bord.</li>
+      <li>Excursiile opționale la țărm.</li>
+      <li>Pachetele de băuturi, alcoolice și non-alcoolice.</li>
+      <li>Asigurarea medicală.</li>
+    </ul>`;
+  stepsList.appendChild(noticeWarn);
+
+  function focusIds(ids, sourceEl){
+    if(ids.length > 1){
+      const b = L.latLngBounds(ids.map(id=>[PLACES[id].lat,PLACES[id].lng]));
+      map.flyToBounds(b, { padding:[90,90], duration:1.1 });
+    } else {
+      const p = PLACES[ids[0]];
+      map.flyTo([p.lat,p.lng], Math.max(map.getZoom(), p.zoom), { duration:.9 });
+    }
+
+    Object.entries(markers).forEach(([mid,m])=>{
+      const wrap = m.getElement()?.querySelector('.pill');
+      if(!wrap) return;
+      const active = ids.includes(mid);
+      wrap.classList.toggle('is-active', active);
+      if(active){ wrap.classList.remove('pulse'); void wrap.offsetWidth; wrap.classList.add('pulse'); }
+    });
+
+    document.querySelectorAll('.step').forEach(el=>{
+      const stepIds = JSON.parse(el.dataset.ids);
+      el.classList.toggle('active', stepIds.some(id=>ids.includes(id)));
+    });
+    if(sourceEl) sourceEl.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+
+  // ---------- Sidebar open/close ----------
+  const sidebar = document.getElementById('sidebar');
+  const reopenTab = document.getElementById('reopenTab');
+  document.getElementById('sbClose').addEventListener('click', ()=>{
+    sidebar.classList.add('hidden'); reopenTab.classList.add('show');
+  });
+  reopenTab.addEventListener('click', ()=>{
+    sidebar.classList.remove('hidden'); reopenTab.classList.remove('show');
+  });
+
+  document.getElementById('reserveBtn').addEventListener('click', ()=>{
+    alert('Conectează acest buton la pagina de rezervare a circuitului.');
+  });
+</script>
+</body>
+</html>
