@@ -199,8 +199,11 @@
   // ---------- Map ----------
   const map = L.map('map', { zoomControl:false, attributionControl:true, worldCopyJump:true });
   L.control.zoom({ position:'bottomright' }).addTo(map);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution:'© OpenStreetMap, © CARTO', maxZoom:19, subdomains:'abcd'
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+    attribution:'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap contributors', maxZoom:16
+  }).addTo(map);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom:16
   }).addTo(map);
 
   const allBounds = L.latLngBounds(Object.values(PLACES).map(p=>[p.lat,p.lng]));
