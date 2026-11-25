@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Milano &amp; Bernina Express · 11–14 Decembrie 2027</title>
+<title>Milano &amp; Bernina Express · 4 zile / 3 nopți</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
@@ -61,6 +61,7 @@
   .pill-tail{width:9px;height:9px;background:var(--pine);transform:rotate(45deg) translateY(-6px);
     box-shadow:0 4px 8px rgba(16,51,31,.2);}
   .pill.waypoint .pill-tail{background:var(--pine-light);}
+  .pill.optional .pill-label,.pill.optional .pill-tail{background:#E08A2E;}
   .pill.is-active .pill-label{transform:scale(1.12);box-shadow:0 6px 18px rgba(16,51,31,.45);}
   .pill.pulse .pill-label{animation:pulse .8s ease;}
   @keyframes pulse{0%{transform:scale(1);} 40%{transform:scale(1.28);} 100%{transform:scale(1.12);}}
@@ -92,9 +93,10 @@
   .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;position:relative;z-index:1;}
   .legend span{display:flex;align-items:center;gap:6px;font:500 11.5px 'Inter',sans-serif;color:#E8F3EC;}
   .legend i{width:16px;height:0;display:inline-block;}
-  .l-train i{border-top:3px dashed #8FD9B0;}
+  .l-train i{border-top:3px dashed #FF8A80;}
   .l-bus i{border-top:2px dashed #D8D2C4;opacity:.85;}
   .l-flight i{border-top:2.5px dashed #9CC6E6;}
+  .l-opt i{border-top:2.5px dashed #F2B880;}
 
   .steps{flex:1;overflow-y:auto;padding:6px 0 26px;}
   .steps::-webkit-scrollbar{width:6px;}
@@ -147,13 +149,14 @@
     <div class="sb-header">
       <svg class="peaks" viewBox="0 0 400 46" preserveAspectRatio="none"><path d="M0 46 L40 14 L70 30 L110 4 L150 26 L190 10 L230 34 L270 12 L310 28 L345 6 L400 24 L400 46 Z" fill="#fff"/></svg>
       <button class="sb-close" id="sbClose" aria-label="Închide">✕</button>
-      <div class="eyebrow">11–14 Decembrie 2027 · 4 zile / 3 nopți</div>
+      <div class="eyebrow">4 zile / 3 nopți · Zbor direct Wizz Air</div>
       <h1>Milano &amp; Trenul Panoramic Bernina Express ✨</h1>
-      <div class="route-breadcrumb">Chișinău → Milano → St. Moritz → Ospizio Bernina → Tirano → Milano → Chișinău</div>
+      <div class="route-breadcrumb">Chișinău → Milano → Colico → Tirano → Ospizio Bernina → St. Moritz → Maloja → Milano → Chișinău</div>
       <div class="legend">
         <span class="l-train"><i></i>Bernina Express</span>
         <span class="l-bus"><i></i>Autocar</span>
         <span class="l-flight"><i></i>Zbor</span>
+        <span class="l-opt"><i></i>Opțional (Ziua 3)</span>
       </div>
     </div>
 
@@ -168,68 +171,91 @@
   // ---------- Data ----------
   const PLACES = {
     chi: { name:'Chișinău',        lat:47.0105, lng:28.8638, waypoint:false },
-    mil: { name:'Milano',          lat:45.4642, lng:9.1900,  waypoint:false },
+    mil: { name:'Milano',          lat:45.4855, lng:9.2045,  waypoint:false },
+    col: { name:'Colico',          lat:46.1350, lng:9.3750,  waypoint:true  },
+    tir: { name:'Tirano',          lat:46.2144, lng:10.1687, waypoint:false },
+    alp: { name:'Alp Grüm',        lat:46.3735, lng:10.0335, waypoint:true  },
+    osp: { name:'Ospizio Bernina', lat:46.4115, lng:10.0226, waypoint:true  },
+    pon: { name:'Pontresina',      lat:46.4917, lng:9.9014,  waypoint:true  },
     stm: { name:'St. Moritz',      lat:46.4908, lng:9.8355,  waypoint:false },
-    osp: { name:'Ospizio Bernina', lat:46.4128, lng:9.9186,  waypoint:true  },
-    tir: { name:'Tirano',          lat:46.2144, lng:10.1687, waypoint:true  },
+    mal: { name:'Maloja',          lat:46.4017, lng:9.6953,  waypoint:true  },
+    com: { name:'Como',            lat:45.8081, lng:9.0852,  waypoint:true, optional:true },
+    bel: { name:'Bellagio',        lat:45.9871, lng:9.2614,  waypoint:true, optional:true },
+    lug: { name:'Lugano',          lat:46.0037, lng:8.9511,  waypoint:true, optional:true },
   };
 
   const MODE_STYLE = {
-    train:  { color:'#1F6B45', weight:5, opacity:.90, dash:'1 9'  },
-    bus:    { color:'#8A7F6B', weight:2, opacity:.55, dash:'4 8'  },
-    flight: { color:'#4A7FA6', weight:3, opacity:.80, dash:'1 11' },
+    train:  { color:'#C62828', weight:5,   opacity:.90, dash:'1 9'  },
+    bus:    { color:'#8A7F6B', weight:2.5, opacity:.65, dash:'4 8'  },
+    flight: { color:'#4A7FA6', weight:3,   opacity:.80, dash:'1 11' },
+    opt:    { color:'#E08A2E', weight:2.5, opacity:.75, dash:'4 8'  },
   };
-  const MODE_EMOJI = { train:'🚞', bus:'🚌', flight:'✈️' };
+  const MODE_EMOJI = { train:'🚞', bus:'🚌', flight:'✈️', opt:'⛵' };
 
+  // traseul principal (animat)
   const SEGMENTS = [
     { from:'chi', to:'mil', mode:'flight' },
-    { from:'mil', to:'stm', mode:'bus'    },
-    { from:'stm', to:'osp', mode:'train'  },
-    { from:'osp', to:'tir', mode:'train'  },
-    { from:'tir', to:'mil', mode:'bus'    },
+    { from:'mil', to:'col', mode:'bus'    },
+    { from:'col', to:'tir', mode:'bus'    },
+    { from:'tir', to:'alp', mode:'train'  },
+    { from:'alp', to:'osp', mode:'train'  },
+    { from:'osp', to:'pon', mode:'train'  },
+    { from:'pon', to:'stm', mode:'train'  },
+    { from:'stm', to:'mal', mode:'bus'    },
+    { from:'mal', to:'mil', mode:'bus'    },
     { from:'mil', to:'chi', mode:'flight' },
+  ];
+  // excursia opțională din Ziua 3 (doar desenată)
+  const OPT_SEGMENTS = [
+    { from:'mil', to:'com', mode:'opt' },
+    { from:'com', to:'bel', mode:'opt' },
+    { from:'bel', to:'lug', mode:'opt' },
+    { from:'lug', to:'mil', mode:'opt' },
   ];
 
   const STEPS = [
-    { n:1, date:'Vineri, 11 Decembrie', title:'Bine ați venit în Capitala Modei!', focus:'mil',
-      tag:'Cazare: Doria Grand Hotel 4★, Milano',
-      text:'Prezentare la Aeroportul Chișinău (RMO) la 06:50, decolare 09:50 spre Milano — zbor direct, 2h45m. Aterizare pe Malpensa (MXP) la 11:35, transfer cu Malpensa Express spre Stazione Centrale și cazare la Doria Grand Hotel 4★. După-amiază: atmosferă de Crăciun pe Corso Buenos Aires, Piazza del Duomo cu bradul uriaș și Galleria Vittorio Emanuele II — opțional, aperitivo în cartierul Brera.' },
-    { n:2, date:'Sâmbătă, 12 Decembrie', title:'Elveția de poveste și Bernina Express', focus:'osp',
-      tag:'Cazare: Doria Grand Hotel 4★, Milano',
-      text:'Mic dejun la hotel. Plecare cu autocarul la 09:00 prin peisajele înzăpezite ale Alpilor spre St. Moritz — timp liber pe zona pietonală, la lacul înghețat și la celebra cofetărie Hanselmann (din 1894). La 15:20, îmbarcare în trenul Bernina Express (patrimoniu UNESCO): Pontresina, Diavolezza, Ospizio Bernina (2.253 m — cel mai înalt punct), Alp Grüm și coborârea spectaculoasă prin Val Poschiavo, până la Tirano. Transfer cu autocarul înapoi la Milano, sosire ~21:00.' },
-    { n:3, date:'Duminică, 13 Decembrie', title:'Arta gotică și terasele Domului', focus:'mil',
-      tag:'Check-out seara',
-      text:'Mic dejun. Dimineață liberă — Castel Sforzesco, Parcul Sempione sau shopping. La 15:30, tur ghidat Fast-Track al Domului din Milano: interior, vitralii, zonă arheologică și urcare cu liftul pe terasele de piatră pentru priveliște panoramică. Vizită la Muzeul Duomo, Biserica San Gottardo și Târgul de Crăciun din piață. Seara, bagajele se pregătesc pentru plecare.' },
-    { n:4, date:'Luni, 14 Decembrie', title:'Rămas bun, Milano!', focus:'chi',
-      tag:'Sosire Chișinău dimineața',
-      text:'Transfer nocturn spre Gara Milano Centrale pentru ultimul tren Malpensa Express (23:25 — nu așteaptă!). Sosire pe Malpensa la 00:40, check-in de zbor 02:20, decolare spre Chișinău la 05:30. * Pentru grupuri de minimum 10 persoane se poate activa transferul privat de noapte cu autocarul, direct de la hotel, la 01:30.' },
+    { n:1, date:'Ziua 1', title:'Bine ați venit în Capitala Modei!', focus:'mil',
+      tag:'Cazare: 43 Station Hotel 3★, Milano',
+      text:'Prezentare la Aeroportul Chișinău (RMO) la 03:05, decolare 06:05 cu Wizz Air — zbor direct, 2h35m. Aterizare pe Malpensa (MXP) la 07:40, tren Malpensa Express spre Milano Centrale (~55 min) și 350 m pe jos până la 43 Station Hotel 3★ (check-in de la 14:00). După-amiază: Corso Buenos Aires, Piazza del Duomo cu Catedrala iluminată și Galleria Vittorio Emanuele II — opțional, aperitivo în Brera.' },
+    { n:2, date:'Ziua 2', title:'Elveția de poveste și Bernina Express', focus:'osp',
+      tag:'Excursie inclusă · ~11 ore',
+      text:'Plecare cu autocarul la 07:05 din Milano Centrale, pauză la Colico pe malul Lacului Como, apoi timp liber în Tirano. La ~11:05, trenul roșu Bernina Express (UNESCO): Val Poschiavo, Alp Grüm cu priveliște spre ghețarul Palü, Ospizio Bernina (2.253 m — cel mai înalt punct) și Pontresina. 1,5 ore în St. Moritz, apoi întoarcere cu autocarul prin Maloja, sosire în Milano ~18:05.' },
+    { n:3, date:'Ziua 3', title:'Timp liber sau Lacul Como (opțional)', focus:'bel',
+      tag:'Opțional: +139 € / persoană',
+      text:'Zi liberă în Milano: Castello Sforzesco, Pinacoteca di Brera, Cina Cea de Taină, Navigli, târgurile de Crăciun sau shopping. Opțional: Como, croazieră cu barca privată pe lac, Bellagio — „Perla Lacului Como” — și Lugano (Elveția), întoarcere ~19:00. Seara: check-out și ultimul tren Malpensa Express la 23:25.' },
+    { n:4, date:'Ziua 4', title:'Rămas bun, Milano!', focus:'chi',
+      tag:'Sosire Chișinău 09:05',
+      text:'Sosire pe Malpensa la ~00:20, check-in de zbor la 02:20, decolare spre Chișinău la 05:30 și aterizare la 09:05. * Pentru grupuri de minimum 7 persoane se poate activa transferul privat de noapte cu autocarul, direct de la hotel, la 01:30 (45 € / persoană).' },
   ];
 
   // ---------- Map ----------
   const map = L.map('map', { zoomControl:false, attributionControl:true, worldCopyJump:true });
   L.control.zoom({ position:'bottomright' }).addTo(map);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution:'© OpenStreetMap, © CARTO', maxZoom:19, subdomains:'abcd'
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+    attribution:'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap contributors', maxZoom:16
+  }).addTo(map);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom:16
   }).addTo(map);
 
   const bounds = L.latLngBounds(Object.values(PLACES).map(p=>[p.lat,p.lng]));
-  map.fitBounds(bounds, { padding:[90,90] });
+  map.fitBounds(bounds, { padding:[60,60] });
 
-  function pillIcon(name, waypoint){
+  function pillIcon(name, waypoint, optional){
     return L.divIcon({
-      className:'', html:`<div class="pill${waypoint?' waypoint':''}"><div class="pill-label">${name}</div><div class="pill-tail"></div></div>`,
+      className:'', html:`<div class="pill${waypoint?' waypoint':''}${optional?' optional':''}"><div class="pill-label">${name}</div><div class="pill-tail"></div></div>`,
       iconSize:[0,0], iconAnchor:[0,0]
     });
   }
 
   const markers = {};
   Object.entries(PLACES).forEach(([id,p])=>{
-    const m = L.marker([p.lat,p.lng], { icon:pillIcon(p.name,p.waypoint) }).addTo(map);
+    const m = L.marker([p.lat,p.lng], { icon:pillIcon(p.name,p.waypoint,p.optional) }).addTo(map);
     markers[id] = m;
     m.on('click', ()=> focusPlace(id));
   });
 
-  SEGMENTS.forEach(seg=>{
+  SEGMENTS.concat(OPT_SEGMENTS).forEach(seg=>{
     const a = PLACES[seg.from], b = PLACES[seg.to], st = MODE_STYLE[seg.mode];
     L.polyline([[a.lat,a.lng],[b.lat,b.lng]], {
       color:st.color, weight:st.weight, opacity:st.opacity, dashArray:st.dash, lineCap:'round'
@@ -294,6 +320,7 @@
   notice.innerHTML = `
     <h4>⚠ De reținut</h4>
     <ul>
+      <li>Elveția nu e în UE: închideți datele mobile înainte de graniță (roaming foarte scump) și aveți pașaportul în original.</li>
       <li>La Domul din Milano: fără rucsacuri mari, valize, obiecte ascuțite sau sticlă; umerii și genunchii trebuie acoperiți, glugile jos.</li>
       <li>Trenurile și autocarele (Italia &amp; Elveția) pleacă exact la oră — întârzierea înseamnă pierderea transportului pe cont propriu.</li>
     </ul>`;
@@ -326,9 +353,6 @@
     sidebar.classList.remove('hidden'); reopenTab.classList.remove('show');
   });
 
-  document.getElementById('reserveBtn').addEventListener('click', ()=>{
-    alert('Conectează acest buton la pagina de rezervare a circuitului.');
-  });
 </script>
 </body>
 </html>
